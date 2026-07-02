@@ -1,592 +1,766 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# Streamlit 페이지 설정 (16:9 비율을 위해 wide 모드 사용)
-st.set_page_config(layout="wide", page_title="Gravity Arrow", page_icon="🏹")
+st.set_page_config(page_title="Gravity Arrow - Dynamic Planet Edition", layout="wide")
+st.markdown(
+    """
+    <style>
+    .reportview-container .main .block-container{ max-width: 100%; padding: 0; }
+    iframe { display: block; width: 100vw; height: 95vh; border: none; }
+    body { margin: 0; background-color: #050608; }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
-# HTML, CSS, JavaScript를 포함한 전체 웹 게임 코드
 game_html = """
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Gravity Arrow</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gravity Arrow - Dynamic Planet</title>
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background-color: #000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            font-family: 'Malgun Gothic', sans-serif;
-            color: white;
-            user-select: none;
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background-color: #050608; color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none; display: flex; align-items: center; justify-content: center;
         }
-        #game-container {
-            position: relative;
-            width: 1280px;
-            height: 720px;
-            box-shadow: 0 0 20px rgba(255,255,255,0.2);
-            overflow: hidden;
+        #game-wrapper {
+            position: relative; width: 1200px; height: 675px;
+            background-color: #000; box-shadow: 0 0 35px rgba(0,0,0,0.9);
+            overflow: hidden; border-radius: 12px;
         }
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
+        #game-canvas {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: transparent; cursor: grab; z-index: 1;
         }
-        /* 화면 흔들림 애니메이션 */
-        @keyframes shake {
-            0% { transform: translate(1px, 1px) rotate(0deg); }
-            10% { transform: translate(-1px, -2px) rotate(-1deg); }
-            20% { transform: translate(-3px, 0px) rotate(1deg); }
-            30% { transform: translate(3px, 2px) rotate(0deg); }
-            40% { transform: translate(1px, -1px) rotate(1deg); }
-            50% { transform: translate(-1px, 2px) rotate(-1deg); }
-            60% { transform: translate(-3px, 1px) rotate(0deg); }
-            70% { transform: translate(3px, 1px) rotate(-1deg); }
-            80% { transform: translate(-1px, -1px) rotate(1deg); }
-            90% { transform: translate(1px, 2px) rotate(0deg); }
-            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        #game-canvas:active { cursor: grabbing; }
+        .screen-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(5, 6, 8, 0.92); z-index: 10;
         }
-        .shake {
-            animation: shake 0.5s;
-            animation-iteration-count: 1;
+        .hidden { display: none !important; }
+        h1 { font-size: 3.8rem; margin: 10px 0; text-shadow: 0 0 20px #00d2ff; font-weight: 800; letter-spacing: 3px; }
+        .result-title { font-size: 3.2rem; color: #ffcc00; text-shadow: 0 0 15px #ffcc00; margin-bottom: 15px; }
+        .score-report { font-size: 1.6rem; margin-bottom: 35px; text-align: center; line-height: 1.6; }
+        .ui-panel {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            display: flex; flex-direction: column; align-items: center; width: 70%; max-width: 600px;
+            background: rgba(0, 0, 0, 0.55); padding: 12px 25px; border-radius: 20px;
+            box-sizing: border-box; backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.15); z-index: 5;
         }
-        /* UI 오버레이 */
-        #ui-layer {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; /* 클릭은 캔버스로 통과 */
+        .stats { font-size: 1.2rem; font-weight: bold; letter-spacing: 1px; margin-bottom: 8px; width: 100%; text-align: center; }
+        .progress-container { width: 100%; height: 12px; background-color: rgba(255, 255, 255, 0.2); border-radius: 6px; overflow: hidden; }
+        .progress-bar { height: 100%; width: 100%; background: linear-gradient(90deg, #0066ff, #00d2ff); box-shadow: 0 0 10px #00d2ff; transition: width 0.1s linear; }
+        .btn {
+            background: linear-gradient(135deg, #00d2ff 0%, #0066ff 100%); border: none; color: white;
+            padding: 14px 38px; font-size: 1.3rem; font-weight: bold; border-radius: 30px; cursor: pointer; transition: all 0.2s;
         }
-        .hud-text {
-            position: absolute;
-            font-size: 24px;
-            font-weight: bold;
-            text-shadow: 2px 2px 4px #000;
-        }
-        #score-board { top: 20px; right: 20px; text-align: right; }
-        #combo-text { top: 80px; right: 20px; color: #FFD700; font-size: 36px; transition: transform 0.1s; }
-        #info-board { top: 20px; left: 20px; }
-        
-        /* 메인 메뉴 */
-        #main-menu {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            pointer-events: auto;
-            z-index: 10;
-        }
-        h1 { font-size: 80px; margin-bottom: 10px; color: #00e5ff; text-shadow: 0 0 20px #00e5ff; }
-        .planet-btn-group { display: flex; gap: 15px; margin: 30px 0; }
-        .planet-btn {
-            background: #222; border: 2px solid #555; color: white; padding: 15px 25px;
-            font-size: 18px; border-radius: 30px; cursor: pointer; transition: 0.3s;
-        }
-        .planet-btn.active { border-color: #00e5ff; background: #005f73; }
-        .planet-btn:hover { background: #444; }
-        #start-btn {
-            background: #007bff; border: none; color: white; padding: 20px 60px;
-            font-size: 30px; border-radius: 50px; cursor: pointer;
-            box-shadow: 0 0 15px #007bff; transition: 0.2s;
-        }
-        #start-btn:hover { transform: scale(1.05); }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 132, 255, 0.6); }
+        .main-planet-selector { display: flex; gap: 20px; align-items: center; margin-bottom: 35px; background: rgba(255, 255, 255, 0.05); padding: 20px 35px; border-radius: 40px; }
+        .planet-btn-wrapper { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; }
+        .planet-canvas { width: 65px; height: 65px; border-radius: 50%; border: 3px solid transparent; transition: all 0.25s ease; box-sizing: border-box; }
+        .planet-btn-wrapper.active .planet-canvas { border-color: #ffffff; box-shadow: 0 0 20px rgba(255, 255, 255, 0.6); }
+        .planet-label { font-size: 0.85rem; font-weight: bold; color: #a0aec0; }
+        .planet-btn-wrapper.active .planet-label { color: #fff; }
+        #combo-wrapper { position: absolute; bottom: 140px; left: 50%; transform: translateX(-50%); z-index: 5; pointer-events: none; }
+        .combo-text { font-size: 2.5rem; font-weight: 900; font-style: italic; color: #ff3e3e; text-shadow: 0 0 10px rgba(255, 62, 62, 0.8); margin: 0; }
     </style>
 </head>
 <body>
 
-<div id="game-container">
-    <canvas id="gameCanvas" width="1280" height="720"></canvas>
-    
-    <div id="ui-layer">
-        <div id="info-board" class="hud-text">
-            남은 시간: <span id="time-left">15</span>초<br>
-            중력 (<span id="planet-name">지구</span>): <span id="gravity-val">9.8</span> m/s²
+    <div id="game-wrapper">
+        <div id="start-screen" class="screen-overlay">
+            <h1>Gravity Arrow</h1>
+            <p style="font-size: 1.1rem; color: #a0aec0; margin-bottom: 25px;">활을 클릭하고 뒤로 당겼다 놓으세요! (장궁 시뮬레이터 조준)</p>
+            
+            <div class="main-planet-selector" id="planet-selector-bar">
+                <div id="wrapper-earth" class="planet-btn-wrapper active" onclick="selectPlanet('earth')">
+                    <canvas id="btn-canvas-earth" class="planet-canvas" width="60" height="60"></canvas>
+                    <div class="planet-label">지구</div>
+                </div>
+                <div id="wrapper-moon" class="planet-btn-wrapper" onclick="selectPlanet('moon')">
+                    <canvas id="btn-canvas-moon" class="planet-canvas" width="60" height="60"></canvas>
+                    <div class="planet-label">달</div>
+                </div>
+                <div id="wrapper-mars" class="planet-btn-wrapper" onclick="selectPlanet('mars')">
+                    <canvas id="btn-canvas-mars" class="planet-canvas" width="60" height="60"></canvas>
+                    <div class="planet-label">화성</div>
+                </div>
+                <div id="wrapper-venus" class="planet-btn-wrapper" onclick="selectPlanet('venus')">
+                    <canvas id="btn-canvas-venus" class="planet-canvas" width="60" height="60"></canvas>
+                    <div class="planet-label">금성</div>
+                </div>
+                <div id="wrapper-europa" class="planet-btn-wrapper" onclick="selectPlanet('europa')">
+                    <canvas id="btn-canvas-europa" class="planet-canvas" width="60" height="60"></canvas>
+                    <div class="planet-label">유로파</div>
+                </div>
+            </div>
+
+            <button class="btn" onclick="startGame()">게임 시작</button>
+            <p style="font-size: 1rem; color: #718096; margin-top: 20px;">최고 기록: <span id="main-high-disp" style="color:#00d2ff;">0</span>점</p>
         </div>
-        <div id="score-board" class="hud-text">
-            최고 기록: <span id="best-score">0</span>점<br>
-            현재 점수: <span id="current-score">0</span>점
+
+        <div id="ingame-ui" class="ui-panel hidden">
+            <div class="stats">
+                행성: <span id="planet-name-disp" style="color:#ffcc00;">지구</span> |
+                점수: <span id="score-disp" style="color:#00d2ff;">0</span>
+            </div>
+            <div class="progress-container">
+                <div id="time-progress" class="progress-bar"></div>
+            </div>
         </div>
-        <div id="combo-text" class="hud-text" style="display:none;">COMBO x<span id="combo-val">0</span>!</div>
+
+        <div id="combo-wrapper" class="hidden"><p class="combo-text" id="combo-disp">5 COMBO</p></div>
+
+        <div id="result-screen" class="screen-overlay hidden">
+            <div class="result-title" id="result-title-text">GAME OVER</div>
+            <div class="score-report">
+                최종 점수: <span id="final-score-disp" style="color: #00d2ff; font-weight: bold;">0</span> 점<br>
+                최대 콤보: <span id="final-combo-disp" style="color: #ff3e3e; font-weight: bold;">0</span> 콤보<br>
+                <span id="highscore-message" style="font-size: 1.2rem; color: #4cdf50;"></span>
+            </div>
+            <button class="btn" onclick="goToMain()">메인으로 가기</button>
+        </div>
+
+        <canvas id="game-canvas"></canvas>
     </div>
 
-    <div id="main-menu">
-        <h1>Gravity Arrow</h1>
-        <p style="font-size: 20px; color: #ccc;">활을 드래그하여 과녁을 맞추세요! (15초 제한)</p>
-        <div class="planet-btn-group">
-            <button class="planet-btn active" onclick="setPlanet('earth')">지구</button>
-            <button class="planet-btn" onclick="setPlanet('moon')">달</button>
-            <button class="planet-btn" onclick="setPlanet('mars')">화성</button>
-            <button class="planet-btn" onclick="setPlanet('venus')">금성</button>
-            <button class="planet-btn" onclick="setPlanet('europa')">유로파</button>
-        </div>
-        <button id="start-btn" onclick="startGame()">게임 시작</button>
-    </div>
-</div>
+    <script>
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const bowPos = { x: 200, y: 675 / 2 };
 
-<script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    const container = document.getElementById('game-container');
-
-    // 게임 상태 변수
-    let isPlaying = false;
-    let score = 0;
-    let bestScore = 0;
-    let timeLeft = 15;
-    let combo = 0;
-    let timerInterval;
-
-    // 행성 데이터 (중력값 및 배경 입자색)
-    const planets = {
-        earth: { name: "지구", gravity: 9.8, bg: "#87CEEB", particle: "white", pType: "cloud" },
-        moon: { name: "달", gravity: 1.6, bg: "#0f0f1a", particle: "#888", pType: "star" },
-        mars: { name: "화성", gravity: 3.7, bg: "#8B4513", particle: "#CD5C5C", pType: "dust" },
-        venus: { name: "금성", gravity: 8.9, bg: "#DAA520", particle: "#F0E68C", pType: "gas" },
-        europa: { name: "유로파", gravity: 1.3, bg: "#E0FFFF", particle: "#fff", pType: "snow" }
-    };
-    let currentPlanet = 'earth';
-
-    // 물리 및 렌더링 스케일 설정
-    const scale = 5; // 중력 스케일 보정
-    const baseArrowSpeed = 5; // 화살 기본 속도 계수
-
-    // 활과 화살
-    let bow = { x: 150, y: 550, isDragging: false, dragStart: {x:0, y:0}, dragCurrent: {x:0, y:0} };
-    let arrows = [];
-    let isGoldenReady = false;
-    let goldenChangeTimer = 0;
-
-    // 과녁
-    let target = { 
-        x: 1100, y: 360, radius: 80, dy: 2, 
-        directionTimer: 0, isBroken: false, respawnTimer: 0 
-    };
-
-    // 파티클 (배경 및 이펙트)
-    let bgParticles = [];
-    let hitParticles = [];
-
-    // 입력 처리
-    canvas.addEventListener('mousedown', (e) => {
-        if(!isPlaying) return;
-        const rect = canvas.getBoundingClientRect();
-        const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
-        const my = (e.clientY - rect.top) * (canvas.height / rect.height);
-        
-        // 활 근처 클릭 시 드래그 시작
-        if(Math.hypot(mx - bow.x, my - bow.y) < 100) {
-            bow.isDragging = true;
-            bow.dragStart = {x: mx, y: my};
-            bow.dragCurrent = {x: mx, y: my};
+        function initCanvasSize() {
+            canvas.width = 1200; canvas.height = 675;
+            bowPos.x = 180; bowPos.y = canvas.height / 2;
+            target.x = canvas.width - 150;
         }
-    });
 
-    canvas.addEventListener('mousemove', (e) => {
-        if(bow.isDragging) {
+        const planets = {
+            earth: { name: '지구', gravity: 9.8, color: '#2b82c9' },
+            moon: { name: '달', gravity: 1.6, color: '#777777' },
+            mars: { name: '화성', gravity: 3.7, color: '#e03e1d' },
+            venus: { name: '금성', gravity: 8.9, color: '#e3a857' },
+            europa: { name: '유로파', gravity: 1.3, color: '#b0e0e6' }
+        };
+        const planetKeys = ['earth', 'moon', 'mars', 'venus', 'europa'];
+        let currentPlanetKey = 'earth';
+
+        let score = 0;
+        let highScore = localStorage.getItem('gravity_arrow_high') || 0;
+        const totalDuration = 30; let timeLeft = 30;
+        let gameActive = false;
+        let timerInterval, targetDirInterval;
+
+        // 현실적인 명암을 위한 변수 추가 및 세밀화된 운석 데이터 구조
+        let meteor = { x: 0, y: 0, vx: 0, vy: 0, radius: 45, active: false, destroyed: false, rotation: 0, rotSpeed: 0.04 };
+
+        // [요구사항 반영] 과녁 이동 범위를 위아래 화면 끝까지 연장 (radius 크기를 고려해 0 ~ canvas.height 범위 제어)
+        let target = {
+            x: 1200 - 150, y: 675 / 2, radiusD: 115, radiusC: 84, radiusB: 51, radiusA: 20,  
+            speed: 4.0, dir: 1, visible: true, respawnTimer: 0
+        };
+
+        let combo = 0; let maxCombo = 0; let shakeIntensity = 0;
+        let particles = []; let scoreTexts = [];
+        let gravityScale = 0.04; let currentGravity = planets[currentPlanetKey].gravity * gravityScale;
+
+        let isDragging = false;
+        let dragStart = { x: 0, y: 0 };
+        let dragCurrent = { x: 0, y: 0 };
+        let currentAngle = 0;
+        let dynamicPower = 0;
+        const maxDragDist = 180;
+
+        let activeArrows = [];
+        let arrowTrajectoryVisible = false;
+
+        let envParticles = []; let stars = [];        
+        document.getElementById('main-high-disp').innerText = highScore;
+        initCanvasSize();
+
+        function drawPlanetButtonsVisual() {
+            planetKeys.forEach(key => {
+                const pCanvas = document.getElementById(`btn-canvas-${key}`);
+                if (!pCanvas) return;
+                const pCtx = pCanvas.getContext('2d');
+                const cx = pCanvas.width / 2; const cy = pCanvas.height / 2; const r = pCanvas.width / 2 - 2;
+                pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+                pCtx.save(); pCtx.beginPath(); pCtx.arc(cx, cy, r, 0, Math.PI * 2); pCtx.clip();
+
+                if (key === 'earth') {
+                    pCtx.fillStyle = '#2b82c9'; pCtx.fillRect(0, 0, pCanvas.width, pCanvas.height);
+                    pCtx.fillStyle = '#228b22';
+                    pCtx.beginPath(); pCtx.arc(cx - 12, cy - 8, 14, 0, Math.PI * 2); pCtx.fill();
+                    pCtx.beginPath(); pCtx.arc(cx + 10, cy + 10, 16, 0, Math.PI * 2); pCtx.fill();
+                } else if (key === 'moon') {
+                    pCtx.fillStyle = '#aaaaaa'; pCtx.fillRect(0, 0, pCanvas.width, pCanvas.height);
+                    pCtx.fillStyle = '#444444';
+                    pCtx.beginPath(); pCtx.arc(cx - 12, cy - 10, 6, 0, Math.PI * 2); pCtx.fill();
+                    pCtx.beginPath(); pCtx.arc(cx + 8, cy - 6, 4, 0, Math.PI * 2); pCtx.fill();
+                } else if (key === 'mars') {
+                    pCtx.fillStyle = '#e03e1d'; pCtx.fillRect(0, 0, pCanvas.width, pCanvas.height);
+                    pCtx.fillStyle = '#8b4513';
+                    pCtx.beginPath(); pCtx.arc(cx - 8, cy - 8, 8, 0, Math.PI * 2); pCtx.fill();
+                } else if (key === 'venus') {
+                    pCtx.fillStyle = '#ffd166'; pCtx.fillRect(0, 0, pCanvas.width, pCanvas.height);
+                    pCtx.fillStyle = '#b8860b';
+                    pCtx.beginPath(); pCtx.arc(cx - 10, cy + 5, 7, 0, Math.PI * 2); pCtx.fill();
+                } else if (key === 'europa') {
+                    pCtx.fillStyle = '#b0e0e6'; pCtx.fillRect(0, 0, pCanvas.width, pCanvas.height);
+                    pCtx.strokeStyle = '#5f9ea0'; pCtx.lineWidth = 2;
+                    pCtx.beginPath(); pCtx.moveTo(cx - 20, cy - 15); pCtx.lineTo(cx + 15, cy + 20); pCtx.stroke();
+                }
+                pCtx.restore();
+            });
+        }
+
+        function initEnvParticles() {
+            envParticles = [];
+            let count = 0;
+            if (currentPlanetKey === 'earth') count = 8;
+            else if (currentPlanetKey === 'mars') count = 40;
+            else if (currentPlanetKey === 'venus') count = 65;
+            else if (currentPlanetKey === 'europa') count = 100;
+
+            for (let i = 0; i < count; i++) envParticles.push(createEnvParticle(true));
+        }
+
+        function createEnvParticle(randomY = true) {
+            let p = { x: Math.random() * canvas.width, y: randomY ? Math.random() * canvas.height : 0 };
+            if (currentPlanetKey === 'earth') {
+                p.w = 110 + Math.random() * 130; p.h = 45 + Math.random() * 35; p.vx = 0.2 + Math.random() * 0.4; p.vy = 0;
+            } else if (currentPlanetKey === 'mars') {
+                p.r = 1.5 + Math.random() * 2.5; p.vx = Math.random() * 0.4 - 0.2; p.vy = Math.random() * 0.3 - 0.15;
+            } else if (currentPlanetKey === 'venus') {
+                p.w = 8 + Math.random() * 25; p.h = 2 + Math.random() * 2.5; p.vx = -3.0 - Math.random() * 4.0; p.vy = (Math.random() - 0.5) * 0.3;
+            } else if (currentPlanetKey === 'europa') {
+                p.r = 1.2 + Math.random() * 3.0; p.vx = Math.random() * 0.8 - 0.4; p.vy = 1.0 + Math.random() * 2.0;
+            }
+            return p;
+        }
+
+        function initStars() {
+            stars = [];
+            for(let i=0; i<120; i++) stars.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, r: Math.random() * 1.5 });
+        }
+
+        function selectPlanet(key) {
+            if (gameActive) return;
+            currentPlanetKey = key;
+            planetKeys.forEach(k => document.getElementById(`wrapper-${k}`).classList.remove('active'));
+            document.getElementById(`wrapper-${key}`).classList.add('active');
+            document.getElementById('planet-name-disp').innerText = planets[key].name;
+            currentGravity = planets[key].gravity * gravityScale;
+            currentAngle = 0;
+            initStars(); initEnvParticles();
+        }
+
+        function startGame() {
+            score = 0; timeLeft = totalDuration; combo = 0; maxCombo = 0; gameActive = true;
+            activeArrows = []; particles = []; scoreTexts = []; currentAngle = 0;
+            isDragging = false; arrowTrajectoryVisible = false;
+            
+            target.visible = true; target.respawnTimer = 0;
+            target.y = canvas.height / 2;
+            meteor.active = false; meteor.destroyed = false;
+
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.add('hidden');
+            document.getElementById('combo-wrapper').classList.add('hidden');
+            document.getElementById('ingame-ui').classList.remove('hidden');
+            document.getElementById('score-disp').innerText = score;
+            updateProgressBar(); initStars(); initEnvParticles();
+
+            if(targetDirInterval) clearInterval(targetDirInterval);
+            targetDirInterval = setInterval(() => { if(!gameActive) clearInterval(targetDirInterval); target.dir *= -1; }, 4500);
+
+            if(timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeLeft--; updateProgressBar();
+                if(timeLeft === 20 && !meteor.destroyed) spawnMeteor();
+                if(timeLeft <= 0) endGame();
+            }, 1000);
+        }
+
+        function updateProgressBar() {
+            const bar = document.getElementById('time-progress');
+            bar.style.width = `${(timeLeft / totalDuration) * 100}%`;
+        }
+
+        function spawnMeteor() {
+            meteor.x = canvas.width + 60; meteor.y = 80;
+            let dx = bowPos.x - meteor.x; let dy = bowPos.y - meteor.y; let distance = Math.hypot(dx, dy);
+            meteor.vx = (dx / distance) * 2.5; meteor.vy = (dy / distance) * 2.5;
+            meteor.active = true;
+        }
+
+        function endGame() {
+            gameActive = false; clearInterval(timerInterval); if(targetDirInterval) clearInterval(targetDirInterval);
+            document.getElementById('ingame-ui').classList.add('hidden');
+            document.getElementById('combo-wrapper').classList.add('hidden');
+
+            document.getElementById('final-score-disp').innerText = score;
+            document.getElementById('final-combo-disp').innerText = maxCombo;
+            const msgElement = document.getElementById('highscore-message');
+            const titleElement = document.getElementById('result-title-text');
+
+            if(score > highScore) {
+                highScore = score; localStorage.setItem('gravity_arrow_high', highScore);
+                document.getElementById('main-high-disp').innerText = highScore;
+                titleElement.innerText = "NEW RECORD!"; titleElement.style.color = "#4cdf50";
+                msgElement.innerText = "축하합니다! 최고 기록을 경신했습니다!";
+            } else {
+                titleElement.innerText = "GAME OVER"; titleElement.style.color = "#ffcc00"; msgElement.innerText = "";
+            }
+            document.getElementById('result-screen').classList.remove('hidden');
+        }
+
+        function goToMain() {
+            document.getElementById('result-screen').classList.add('hidden');
+            document.getElementById('start-screen').classList.remove('hidden');
+            activeArrows = []; particles = []; scoreTexts = []; currentAngle = 0;
+            initStars(); initEnvParticles(); drawPlanetButtonsVisual();
+        }
+
+        // [요구사항 반영] 충돌 재질별 특수 이펙트 분기 펑션 생성
+        function createExplosion(x, y, type) {
+            let count = type === "meteor" ? 40 : 15;
+            let colors = ["#ffffff"];
+            
+            if (type === "gold" || type === "yellow") colors = ["#ffcc00", "#ff5500", "#ffffff"];
+            else if (type === "red") colors = ["#ff2222", "#ff6666", "#aa0000"]; // 나무 파편 느낌 또는 불꽃
+            else if (type === "stone") colors = ["#999999", "#cccccc", "#555555"]; // 돌가루
+            else if (type === "spark") colors = ["#ffea00", "#ff9100", "#ffffff"]; // 스파크
+            else if (type === "meteor") colors = ["#5c4033", "#ff3e3e", "#3a2a20", "#ffaa00"]; // 운석 폭발
+
+            for (let i = 0; i < count; i++) {
+                let angle = Math.random() * Math.PI * 2; 
+                let speed = type === "spark" ? 2 + Math.random() * 6 : 1 + Math.random() * 4;
+                particles.push({
+                    x: x, y: y, 
+                    vx: Math.cos(angle) * speed, 
+                    vy: Math.sin(angle) * speed,
+                    radius: type === "meteor" ? 2 + Math.random() * 6 : 1.5 + Math.random() * 3, 
+                    color: colors[Math.floor(Math.random() * colors.length)], 
+                    alpha: 1, 
+                    decay: 0.02 + Math.random() * 0.02
+                });
+            }
+        }
+
+        function createScoreText(x, y, text, color) {
+            scoreTexts.push({ x: x, y: y, text: text, color: color, alpha: 1, vy: -0.8 });
+        }
+
+        function getCanvasMousePos(e) {
             const rect = canvas.getBoundingClientRect();
-            bow.dragCurrent.x = (e.clientX - rect.left) * (canvas.width / rect.width);
-            bow.dragCurrent.y = (e.clientY - rect.top) * (canvas.height / rect.height);
+            return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) };
         }
-    });
 
-    canvas.addEventListener('mouseup', (e) => {
-        if(bow.isDragging && isPlaying) {
-            bow.isDragging = false;
-            shootArrow();
-            prepareNextArrow();
-        }
-    });
-
-    // 행성 선택
-    window.setPlanet = function(planetKey) {
-        currentPlanet = planetKey;
-        document.querySelectorAll('.planet-btn').forEach(btn => btn.classList.remove('active'));
-        event.target.classList.add('active');
-        initBgParticles();
-    };
-
-    // 게임 시작
-    window.startGame = function() {
-        document.getElementById('main-menu').style.display = 'none';
-        isPlaying = true;
-        score = 0;
-        timeLeft = 15;
-        combo = 0;
-        arrows = [];
-        target.isBroken = false;
-        updateUI();
-        prepareNextArrow();
-        
-        timerInterval = setInterval(() => {
-            timeLeft--;
-            updateUI();
-            if(timeLeft <= 0) endGame();
-        }, 1000);
-    };
-
-    function endGame() {
-        isPlaying = false;
-        clearInterval(timerInterval);
-        if(score > bestScore) bestScore = score;
-        document.getElementById('main-menu').style.display = 'flex';
-        document.getElementById('start-btn').innerText = "다시 시작";
-    }
-
-    function updateUI() {
-        document.getElementById('time-left').innerText = timeLeft;
-        document.getElementById('planet-name').innerText = planets[currentPlanet].name;
-        document.getElementById('gravity-val').innerText = planets[currentPlanet].gravity.toFixed(1);
-        document.getElementById('current-score').innerText = score;
-        document.getElementById('best-score').innerText = bestScore;
-    }
-
-    function prepareNextArrow() {
-        // 1/20 확률로 사과(골든) 화살
-        isGoldenReady = Math.random() < 0.05;
-    }
-
-    function shootArrow() {
-        let dx = bow.dragStart.x - bow.dragCurrent.x;
-        let dy = bow.dragStart.y - bow.dragCurrent.y;
-        
-        // 힘 제한
-        let power = Math.min(Math.hypot(dx, dy), 200) / 10; 
-        let angle = Math.atan2(dy, dx);
-        
-        arrows.push({
-            x: bow.x, y: bow.y,
-            vx: Math.cos(angle) * power * baseArrowSpeed,
-            vy: Math.sin(angle) * power * baseArrowSpeed,
-            angle: angle,
-            isGolden: isGoldenReady,
-            trail: []
+        window.addEventListener('mousedown', (e) => {
+            if (!gameActive) return;
+            let pos = getCanvasMousePos(e);
+            if (pos.x >= 0 && pos.x <= canvas.width && pos.y >= 0 && pos.y <= canvas.height) {
+                if (Math.hypot(pos.x - bowPos.x, pos.y - bowPos.y) < 160) {
+                    isDragging = true;
+                    dragStart = { x: bowPos.x, y: bowPos.y };
+                    dragCurrent = { x: pos.x, y: pos.y };
+                    arrowTrajectoryVisible = true;
+                }
+            }
         });
-    }
 
-    // 과녁 파괴 및 화면 흔들림
-    function breakTarget() {
-        target.isBroken = true;
-        target.respawnTimer = 60; // 1초 (60프레임)
-        
-        // 화면 흔들림 CSS 클래스 트리거
-        container.classList.remove('shake');
-        void container.offsetWidth; // 리플로우 강제
-        container.classList.add('shake');
-
-        // 파편 파티클 생성
-        for(let i=0; i<30; i++) {
-            hitParticles.push({
-                x: target.x, y: target.y,
-                vx: (Math.random() - 0.5) * 15,
-                vy: (Math.random() - 0.5) * 15,
-                life: 30,
-                color: ['#ff0000', '#ffff00', '#ffffff'][Math.floor(Math.random()*3)]
-            });
-        }
-    }
-
-    // 콤보 텍스트 애니메이션
-    function showCombo() {
-        const cText = document.getElementById('combo-text');
-        document.getElementById('combo-val').innerText = combo;
-        cText.style.display = 'block';
-        cText.style.transform = `scale(${1 + combo * 0.1})`;
-        setTimeout(() => cText.style.transform = 'scale(1)', 100);
-    }
-
-    // 배경 파티클 초기화
-    function initBgParticles() {
-        bgParticles = [];
-        for(let i=0; i<100; i++) {
-            bgParticles.push({
-                x: Math.random() * canvas.width,
-                y: Math.random() * canvas.height,
-                size: Math.random() * 3 + 1,
-                vx: (Math.random() - 0.5) * 2,
-                vy: (Math.random() - 0.5) * 2
-            });
-        }
-    }
-
-    // === 루프 및 렌더링 ===
-    function gameLoop() {
-        update();
-        draw();
-        requestAnimationFrame(gameLoop);
-    }
-
-    function update() {
-        if(!isPlaying) return;
-
-        let g = planets[currentPlanet].gravity / scale;
-
-        // 골든 화살 궤적 변환 타이머
-        goldenChangeTimer++;
-
-        // 과녁 이동
-        if(!target.isBroken) {
-            target.y += target.dy;
-            target.directionTimer++;
-            if(target.directionTimer > 300) { // 약 5초 (60fps 기준)
-                target.dy *= -1;
-                target.directionTimer = 0;
-            }
-            if(target.y < 100 || target.y > canvas.height - 100) target.dy *= -1;
-        } else {
-            target.respawnTimer--;
-            if(target.respawnTimer <= 0) {
-                target.isBroken = false;
-                target.y = Math.random() * 400 + 150; // 랜덤 높이 리스폰
-            }
-        }
-
-        // 화살 물리 업데이트
-        for(let i = arrows.length - 1; i >= 0; i--) {
-            let a = arrows[i];
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            let pos = getCanvasMousePos(e);
+            dragCurrent = { x: pos.x, y: pos.y };
             
-            // 골든 화살 불규칙 운동
-            if(a.isGolden && goldenChangeTimer % 60 === 0) {
-                a.vy += (Math.random() - 0.5) * 5;
-            }
-
-            a.vy += g; // 중력 적용
-            a.x += a.vx;
-            a.y += a.vy;
-            a.angle = Math.atan2(a.vy, a.vx); // 비행 방향으로 각도 회전
+            let dx = dragStart.x - dragCurrent.x;
+            let dy = dragStart.y - dragCurrent.y;
+            currentAngle = Math.atan2(dy, dx);
             
-            a.trail.push({x: a.x, y: a.y});
-            if(a.trail.length > 10) a.trail.shift(); // 잔상 길이 조절
+            let dist = Math.hypot(dx, dy);
+            dynamicPower = Math.min(dist / maxDragDist, 1.0) * 26; // 발사력 수치 약간 버프
+        });
 
-            // 충돌 감지 (A, B, C, D 구역)
-            if(!target.isBroken) {
-                let dist = Math.hypot(a.x - target.x, a.y - target.y);
-                if(dist < target.radius) {
-                    let pts = 0;
-                    if(dist < target.radius * 0.25) pts = 10;      // A
-                    else if(dist < target.radius * 0.5) pts = 5; // B
-                    else if(dist < target.radius * 0.75) pts = 2;// C
-                    else pts = 1;                                // D
-                    
-                    if(a.isGolden) pts *= 2; // 골든 2배
+        window.addEventListener('mouseup', (e) => {
+            if (!isDragging) return;
+            isDragging = false;
+            arrowTrajectoryVisible = false;
 
-                    score += pts;
-                    combo++;
-                    showCombo();
-                    updateUI();
-                    breakTarget();
-                    arrows.splice(i, 1);
-                    continue;
+            if (dynamicPower > 3) {
+                let vx = Math.cos(currentAngle) * dynamicPower;
+                let vy = Math.sin(currentAngle) * dynamicPower;
+
+                if (vx > 0) {
+                    // 리얼 장궁 화살 고유 속성 정의 및 트레일(잔상용) 배열 탑재
+                    activeArrows.push({
+                        x: bowPos.x, y: bowPos.y, vx: vx, vy: vy,
+                        width: 85, height: 3, collided: false, handled: false,
+                        spinAngle: 0, trail: []
+                    });
+                }
+            }
+            dynamicPower = 0;
+        });
+
+        function updateLoop() {
+            if (gameActive) {
+                if(target.visible) {
+                    target.y += target.speed * target.dir;
+                    // [요구사항 반영] 과녁 이동범위를 위아래 화면 완전한 끝까지로 제어 (0 ~ canvas.height)
+                    if(target.y - target.radiusA < 0) {
+                        target.y = target.radiusA;
+                        target.dir = 1;
+                    } else if (target.y + target.radiusA > canvas.height) {
+                        target.y = canvas.height - target.radiusA;
+                        target.dir = -1;
+                    }
+                } else {
+                    target.respawnTimer--;
+                    if(target.respawnTimer <= 0) { target.y = Math.random() * canvas.height; target.visible = true; }
+                }
+                if(meteor.active) {
+                    meteor.x += meteor.vx; meteor.y += meteor.vy;
+                    meteor.rotation += meteor.rotSpeed;
+                    if(meteor.x < bowPos.x - 50) {
+                        meteor.active = false; createExplosion(meteor.x, meteor.y, "meteor"); shakeIntensity = 15;
+                    }
                 }
             }
 
-            // 화면 밖으로 나가면 삭제
-            if(a.x > canvas.width + 100 || a.y > canvas.height + 100) {
-                arrows.splice(i, 1);
-                combo = 0; // 콤보 초기화
-                document.getElementById('combo-text').style.display = 'none';
+            ctx.save();
+            if (shakeIntensity > 0) {
+                ctx.translate((Math.random() - 0.5) * shakeIntensity, (Math.random() - 0.5) * shakeIntensity);
+                shakeIntensity *= 0.85; if (shakeIntensity < 0.2) shakeIntensity = 0;
             }
-        }
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // 배경 파티클 업데이트
-        bgParticles.forEach(p => {
-            if(planets[currentPlanet].pType === "gas") { p.vx += 0.1; p.x += p.vx; p.y += (Math.random()-0.5); } // 금성 강풍
-            else { p.x += p.vx; p.y += p.vy; }
-            
-            if(p.x < 0) p.x = canvas.width;
-            if(p.x > canvas.width) p.x = 0;
-            if(p.y < 0) p.y = canvas.height;
-            if(p.y > canvas.height) p.y = 0;
-        });
+            // 행성 배경 드로잉
+            if (currentPlanetKey === 'earth') ctx.fillStyle = '#87CEEB';
+            else if (currentPlanetKey === 'moon') ctx.fillStyle = '#050505';
+            else if (currentPlanetKey === 'mars') ctx.fillStyle = '#f0d399';
+            else if (currentPlanetKey === 'venus') ctx.fillStyle = '#cca43b';
+            else if (currentPlanetKey === 'europa') ctx.fillStyle = '#b0e0e6';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 타격 파티클 업데이트
-        for(let i = hitParticles.length - 1; i >= 0; i--) {
-            hitParticles[i].x += hitParticles[i].vx;
-            hitParticles[i].y += hitParticles[i].vy;
-            hitParticles[i].life--;
-            if(hitParticles[i].life <= 0) hitParticles.splice(i, 1);
-        }
-    }
+            if (currentPlanetKey === 'moon' || currentPlanetKey === 'earth') {
+                ctx.fillStyle = "rgba(255,255,255,0.5)";
+                stars.forEach(s => { ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill(); });
+            }
 
-    function draw() {
-        // 배경 그리기 (행성 테마)
-        ctx.fillStyle = planets[currentPlanet].bg;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // 지표면 (어두운 실루엣)
-        ctx.fillStyle = "#111";
-        ctx.beginPath();
-        ctx.moveTo(0, canvas.height - 50);
-        ctx.quadraticCurveTo(canvas.width/2, canvas.height - 100, canvas.width, canvas.height - 40);
-        ctx.lineTo(canvas.width, canvas.height);
-        ctx.lineTo(0, canvas.height);
-        ctx.fill();
+            envParticles.forEach(p => {
+                p.x += p.vx; p.y += p.vy;
+                if (currentPlanetKey === 'venus') {
+                    if (p.x < -40) { p.x = canvas.width + 40; p.y = Math.random() * canvas.height; }
+                } else if (currentPlanetKey === 'europa') {
+                    if (p.y > canvas.height) { p.y = 0; p.x = Math.random() * canvas.width; }
+                } else {
+                    if (p.x > canvas.width + 150) p.x = -150;
+                }
 
-        // 배경 파티클
-        ctx.fillStyle = planets[currentPlanet].particle;
-        bgParticles.forEach(p => {
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
-            ctx.fill();
-        });
+                if (currentPlanetKey === 'earth') {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+                    ctx.beginPath(); ctx.ellipse(p.x, p.y, p.w/2, p.h/2, 0, 0, Math.PI*2); ctx.fill();
+                } else if (currentPlanetKey === 'mars') {
+                    ctx.fillStyle = 'rgba(139, 69, 19, 0.35)';
+                    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+                } else if (currentPlanetKey === 'venus') {
+                    ctx.fillStyle = 'rgba(184, 134, 11, 0.45)';
+                    ctx.fillRect(p.x, p.y, p.w, p.h);
+                } else if (currentPlanetKey === 'europa') {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+                    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+                }
+            });
 
-        // 궤적 점선 예측 (드래그 중)
-        if(bow.isDragging) {
-            let dx = bow.dragStart.x - bow.dragCurrent.x;
-            let dy = bow.dragStart.y - bow.dragCurrent.y;
-            let power = Math.min(Math.hypot(dx, dy), 200) / 10; 
-            let angle = Math.atan2(dy, dx);
-            
-            let g = planets[currentPlanet].gravity / scale;
-            let tx = bow.x;
-            let ty = bow.y;
-            let tvx = Math.cos(angle) * power * baseArrowSpeed;
-            let tvy = Math.sin(angle) * power * baseArrowSpeed;
+            // [요구사항 반영] 운석 디자인을 크레이터와 다중 그림자 레이어로 매우 현실감 있게 명암 리뉴얼
+            if(meteor.active) {
+                ctx.save();
+                // 공기 찢는듯한 반투명 열 폭풍 잔상 테일 추가
+                let tailGrad = ctx.createLinearGradient(meteor.x, meteor.y, meteor.x + 110, meteor.y - 40);
+                tailGrad.addColorStop(0, "rgba(255, 60, 0, 0.85)");
+                tailGrad.addColorStop(0.3, "rgba(239, 68, 68, 0.4)");
+                tailGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+                ctx.fillStyle = tailGrad; ctx.beginPath();
+                ctx.moveTo(meteor.x, meteor.y - meteor.radius + 5); 
+                ctx.lineTo(meteor.x + 120, meteor.y - 45); 
+                ctx.lineTo(meteor.x + 40, meteor.y + meteor.radius - 5);
+                ctx.closePath(); ctx.fill();
 
-            ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-            for(let i=0; i<30; i++) {
-                tx += tvx;
-                tvy += g;
-                ty += tvy;
-                if(i % 3 === 0) { // 점선 효과
+                ctx.translate(meteor.x, meteor.y); 
+                ctx.rotate(meteor.rotation);
+                
+                // 1. 기본 본체 그림자 레이어
+                let meteorGrad = ctx.createRadialGradient(-10, -10, 5, 5, 5, meteor.radius);
+                meteorGrad.addColorStop(0, '#8b7355'); // 태양광 받는 밝은 쪽 메인 칼라
+                meteorGrad.addColorStop(0.6, '#4a3525'); // 어두워지는 명암 경계선
+                meteorGrad.addColorStop(1, '#1f140e'); // 완전한 암부 자카드 암석 그림자
+                
+                ctx.fillStyle = meteorGrad; ctx.beginPath(); 
+                ctx.arc(0, 0, meteor.radius, 0, Math.PI*2); ctx.fill();
+
+                // 2. 울퉁불퉁한 현실적 입체 디테일 크레이터(구덩이) 명암 수동 다중 맵핑
+                let craters = [
+                    {cx: -15, cy: -10, cr: 10}, {cx: 15, cy: 12, cr: 8}, 
+                    {cx: -5, cy: 20, cr: 6}, {cx: 20, cy: -15, cr: 7}
+                ];
+                craters.forEach(c => {
                     ctx.beginPath();
-                    ctx.arc(tx, ty, 3, 0, Math.PI*2);
-                    ctx.fill();
+                    ctx.arc(c.cx, c.cy, c.cr, 0, Math.PI*2);
+                    // 구덩이 내부의 안쪽 그림자(역 명암) 처리 시각화
+                    ctx.fillStyle = "rgba(20, 10, 5, 0.65)"; ctx.fill();
+                    ctx.strokeStyle = "rgba(255, 255, 255, 0.15)"; ctx.lineWidth = 1.5; ctx.stroke();
+                });
+                ctx.restore();
+            }
+
+            // 움직이는 과녁 시스템 구조 렌더링
+            const skewX = 0.25;
+            if(target.visible) {
+                ctx.save();
+                ctx.strokeStyle = "rgba(40, 50, 70, 0.4)"; ctx.lineWidth = 4;
+                ctx.beginPath(); ctx.moveTo(target.x + 5, 0); ctx.lineTo(target.x + 5, canvas.height); ctx.stroke();
+                ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.ellipse(target.x, target.y, target.radiusD * skewX, target.radiusD, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#ff3e3e"; ctx.beginPath(); ctx.ellipse(target.x, target.y, target.radiusB * skewX, target.radiusB, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#ffcc00"; ctx.beginPath(); ctx.ellipse(target.x, target.y, target.radiusA * skewX, target.radiusA, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
+            }
+
+            // 활 및 시위 구조 비주얼 드로우
+            ctx.save(); ctx.translate(bowPos.x, bowPos.y); ctx.rotate(currentAngle);
+            ctx.strokeStyle = "#8b5a2b"; ctx.lineWidth = 7;
+            ctx.beginPath(); ctx.arc(-25, 0, 75, -Math.PI/2.3, Math.PI/2.3); ctx.stroke();
+            
+            if(isDragging) {
+                ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.lineWidth = 2.0;
+                ctx.beginPath(); ctx.moveTo(-20, -70); ctx.lineTo(-dynamicPower * 5.0, 0); ctx.lineTo(-20, 70); ctx.stroke();
+            } else {
+                ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.moveTo(-20, -70); ctx.lineTo(-20, 70); ctx.stroke();
+            }
+            ctx.restore();
+
+            // 대기중 화살 드로우
+            if(gameActive && !isDragging) {
+                drawArrowIcon(bowPos.x, bowPos.y, currentAngle, 0);
+            } else if (gameActive && isDragging) {
+                drawArrowIcon(bowPos.x - (dynamicPower * 3.5), bowPos.y, currentAngle, 0);
+            }
+
+            // 포물선 조준선 예측선 드로우
+            if (arrowTrajectoryVisible && gameActive && dynamicPower > 3) {
+                let tVx = Math.cos(currentAngle) * dynamicPower;
+                if (tVx > 0) {
+                    ctx.save();
+                    ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
+                    ctx.lineWidth = 2.0; ctx.setLineDash([4, 4]); ctx.beginPath();
+                    let tX = bowPos.x; let tY = bowPos.y; let tVy = Math.sin(currentAngle) * dynamicPower;
+                    ctx.moveTo(tX, tY);
+                    for (let i = 0; i < 60; i++) {
+                        tX += tVx; tY += tVy; tVy += currentGravity; ctx.lineTo(tX, tY);
+                        if(tX > canvas.width || tY > canvas.height || tY < 0) break;
+                    }
+                    ctx.stroke(); ctx.restore();
                 }
             }
-        }
 
-        // 과녁 그리기
-        if(!target.isBroken) {
-            const colors = ["#fff", "#000", "#00aaff", "#ff0000"]; // D, C, B, A
-            for(let i=3; i>=0; i--) {
-                ctx.fillStyle = colors[i];
-                ctx.beginPath();
-                ctx.arc(target.x, target.y, target.radius * ((i+1)*0.25), 0, Math.PI*2);
-                ctx.fill();
-                ctx.lineWidth = 2;
-                ctx.strokeStyle = "#222";
-                ctx.stroke();
+            // [요구사항 반영] 발사된 투사체들의 완벽한 실제 사냥용 리얼리티 화살 역학 물리 연산 시뮬레이션
+            for (let i = activeArrows.length - 1; i >= 0; i--) {
+                let arrow = activeArrows[i];
+                
+                // 모션 블러 공기 파동 효과 구현을 위한 좌표 기록 보존 시스템
+                arrow.trail.push({ x: arrow.x, y: arrow.y });
+                if (arrow.trail.length > 5) arrow.trail.shift();
+
+                arrow.x += arrow.vx; arrow.y += arrow.vy; arrow.vy += currentGravity;
+                
+                // 자연스런 비행 물리 회전각(Spin) 연산 가산 반영
+                arrow.spinAngle += 0.35; 
+                let arrowAngle = Math.atan2(arrow.vy, arrow.vx);
+
+                // 공기역학적 모션 블러(슉 하고 지나가는 느낌의 얇은 흰색 잔상 0.2초 표출 구현)
+                if (arrow.trail.length > 1) {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.moveTo(arrow.trail[0].x, arrow.trail[0].y);
+                    for (let j = 1; j < arrow.trail.length; j++) {
+                        ctx.lineTo(arrow.trail[j].x, arrow.trail[j].y);
+                    }
+                    ctx.strokeStyle = "rgba(240, 245, 255, 0.28)";
+                    ctx.lineWidth = 2.5;
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                // 업그레이드된 리얼 화살 외형 렌더러 함수로 정교하게 토스
+                drawArrowIcon(arrow.x, arrow.y, arrowAngle, arrow.spinAngle);
+
+                let arrowTipX = arrow.x + Math.cos(arrowAngle) * (arrow.width / 2);
+                let arrowTipY = arrow.y + Math.sin(arrowAngle) * (arrow.width / 2);
+
+                if (arrow.x > canvas.width + 150 || arrow.y > canvas.height + 150 || arrow.y < -150) {
+                    if(!arrow.handled) { combo = 0; document.getElementById('combo-wrapper').classList.add('hidden'); }
+                    activeArrows.splice(i, 1); continue;
+                }
+
+                // 운석과의 충돌 연산 부분
+                if(meteor.active) {
+                    if(Math.hypot(arrowTipX - meteor.x, arrowTipY - meteor.y) <= meteor.radius + 10) {
+                        meteor.active = false; meteor.destroyed = true;
+                        arrow.handled = true;
+                        createExplosion(meteor.x, meteor.y, "meteor");
+                        score += 30; combo++; if(combo > maxCombo) maxCombo = combo;
+                        document.getElementById('score-disp').innerText = score;
+                        createScoreText(meteor.x, meteor.y - 20, `METEOR CRUSH +30`, "#ffaa00");
+                        activeArrows.splice(i, 1); continue;
+                    }
+                }
+
+                // 움직이는 과녁과의 정밀 스큐 판정 영역 분기 연산
+                if (target.visible && !arrow.handled) {
+                    if (arrowTipX >= target.x - 22 && arrowTipX <= target.x + 22) {
+                        let currentRadY = Math.abs(arrowTipY - target.y);
+                        if (currentRadY <= target.radiusD) {
+                            arrow.handled = true;
+                            let addedScore = 0; let scoreColor = "#ffffff"; let hitType = "red"; // 디폴트 나무 파편형
+
+                            if (currentRadY <= target.radiusA) {
+                                addedScore = 10; scoreColor = "#ffcc00"; hitType = "spark"; // 금속 이펙트
+                                combo++; if(combo > maxCombo) maxCombo = combo;
+                                createScoreText(target.x - 40, target.y - 30, `BULLSEYE +10 (${combo} Combo)`, scoreColor);
+                            } else if (currentRadY <= target.radiusB) {
+                                addedScore = 5; scoreColor = "#00d2ff"; hitType = "stone"; // 바위/돌가루 느낌 분기
+                                combo++; if(combo > maxCombo) maxCombo = combo;
+                                createScoreText(target.x - 20, arrowTipY, `HIT +5`, scoreColor);
+                            } else {
+                                addedScore = 2; scoreColor = "#ffffff"; hitType = "red";
+                                combo = 0;
+                                createScoreText(target.x - 10, arrowTipY, `JUST FIT +2`, scoreColor);
+                            }
+
+                            score += addedScore;
+                            document.getElementById('score-disp').innerText = score;
+                            
+                            // [요구사항 반영] 재질별 고유 스파크/돌가루/나무 파편 이펙트 생성
+                            createExplosion(arrowTipX, arrowTipY, hitType);
+
+                            if (combo >= 3) {
+                                let cDisp = document.getElementById('combo-disp');
+                                let cWrap = document.getElementById('combo-wrapper');
+                                cDisp.innerText = `${combo} COMBO`; cWrap.classList.remove('hidden');
+                            } else {
+                                document.getElementById('combo-wrapper').classList.add('hidden');
+                            }
+
+                            target.visible = false; target.respawnTimer = 22;
+                            activeArrows.splice(i, 1);
+                        }
+                    }
+                }
             }
-        }
 
-        // 타격 파편 그리기
-        hitParticles.forEach(p => {
-            ctx.fillStyle = p.color;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
-            ctx.fill();
-        });
-
-        // 활 그리기 (단순화된 활 모양)
-        ctx.save();
-        ctx.translate(bow.x, bow.y);
-        if(bow.isDragging) {
-            let dx = bow.dragStart.x - bow.dragCurrent.x;
-            let dy = bow.dragStart.y - bow.dragCurrent.y;
-            ctx.rotate(Math.atan2(dy, dx));
-        }
-        ctx.strokeStyle = "#8B4513"; // 나무색
-        ctx.lineWidth = 5;
-        ctx.beginPath();
-        ctx.arc(0, 0, 50, -Math.PI/2.5, Math.PI/2.5);
-        ctx.stroke();
-        // 활 시위
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(35, -35);
-        if(bow.isDragging) ctx.lineTo(-Math.min(Math.hypot(bow.dragStart.x - bow.dragCurrent.x, bow.dragStart.y - bow.dragCurrent.y)/3, 40), 0);
-        else ctx.lineTo(10, 0);
-        ctx.lineTo(35, 35);
-        ctx.stroke();
-        ctx.restore();
-
-        // 발사 대기 중인 화살 그리기
-        if(!bow.isDragging && !isPlaying) return; // 메뉴창에선 대기 화살 안그림
-        if(!bow.isDragging) {
-            drawArrowShape(bow.x + 20, bow.y, 0, isGoldenReady);
-        } else {
-            let dx = bow.dragStart.x - bow.dragCurrent.x;
-            let dy = bow.dragStart.y - bow.dragCurrent.y;
-            let angle = Math.atan2(dy, dx);
-            let pull = Math.min(Math.hypot(dx, dy)/3, 40);
-            drawArrowShape(bow.x - pull, bow.y, angle, isGoldenReady);
-        }
-
-        // 날아가는 화살 그리기
-        arrows.forEach(a => {
-            // 잔상 효과 (모션 블러)
-            ctx.beginPath();
-            ctx.moveTo(a.x, a.y);
-            if(a.trail.length > 0) {
-                ctx.lineTo(a.trail[0].x, a.trail[0].y);
-                ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
-                ctx.lineWidth = 3;
-                ctx.stroke();
+            // 타격 파티클 애니메이션 루프 업데이트
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i]; p.x += p.vx; p.y += p.vy; p.alpha -= p.decay;
+                if (p.alpha <= 0) { particles.splice(i, 1); continue; }
+                ctx.save(); ctx.globalAlpha = p.alpha; ctx.fillStyle = p.color;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill(); ctx.restore();
             }
-            drawArrowShape(a.x, a.y, a.angle, a.isGolden);
-        });
-    }
 
-    // 디테일한 화살 그리기 함수
-    function drawArrowShape(x, y, angle, isGolden) {
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.rotate(angle);
-        
-        // 화살대 (카본/나무 느낌)
-        ctx.fillStyle = isGolden ? "#FFD700" : "#3e2723";
-        ctx.fillRect(-40, -1.5, 80, 3);
-        
-        // 화살촉 (강철/티타늄)
-        ctx.fillStyle = "#cfd8dc";
-        ctx.beginPath();
-        ctx.moveTo(40, -3);
-        ctx.lineTo(50, 0);
-        ctx.lineTo(40, 3);
-        ctx.fill();
-        
-        // 화살 깃 (3개지만 2D 단면이므로 2개 표현)
-        ctx.fillStyle = isGolden ? "#ff5252" : "#ffffff";
-        ctx.beginPath();
-        ctx.moveTo(-35, -1.5);
-        ctx.lineTo(-45, -8);
-        ctx.lineTo(-40, -1.5);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.moveTo(-35, 1.5);
-        ctx.lineTo(-45, 8);
-        ctx.lineTo(-40, 1.5);
-        ctx.fill();
+            // 플로팅 텍스트 이펙트 드로잉
+            for (let i = scoreTexts.length - 1; i >= 0; i--) {
+                let stx = scoreTexts[i]; stx.y += stx.vy; stx.alpha -= 0.015;
+                if (stx.alpha <= 0) { scoreTexts.splice(i, 1); continue; }
+                ctx.save(); ctx.globalAlpha = stx.alpha; ctx.fillStyle = stx.color;
+                ctx.font = "bold 1.4rem sans-serif"; ctx.fillText(stx.text, stx.x, stx.y); ctx.restore();
+            }
 
-        // 꼬리 홈 (Nock)
-        ctx.fillStyle = "#000";
-        ctx.fillRect(-42, -2, 2, 4);
-
-        if(isGolden) {
-            // 사과 꽂힌 표현
-            ctx.fillStyle = "red";
-            ctx.beginPath();
-            ctx.arc(35, 0, 6, 0, Math.PI*2);
-            ctx.fill();
+            ctx.restore();
+            requestAnimationFrame(updateLoop);
         }
 
-        ctx.restore();
-    }
+        // [요구사항 반영] 사냥용 장궁 화살 그래픽 디테일 렌더러 함수 완전 커스텀 구현
+        function drawArrowIcon(x, y, angle, spinAngle) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
 
-    initBgParticles();
-    gameLoop();
-</script>
+            // 1. 화살대 (곧고 매끄러운 원통형 카본 섬유/짙은 갈색 나무 표면 은은한 반사 구현)
+            let shaftLength = 82; // 전체 비율에 맞춘 약 75~90cm 스케일 축소
+            let shaftGrad = ctx.createLinearGradient(-shaftLength/2, -1.5, -shaftLength/2, 1.5);
+            shaftGrad.addColorStop(0, '#2e1c0c'); // 카본/짙은 갈색 나무 음영 암부
+            shaftGrad.addColorStop(0.5, '#4e3629'); // 표면 하이라이트 나뭇결 반사
+            shaftGrad.addColorStop(1, '#1b0f07');
+            
+            ctx.fillStyle = shaftGrad;
+            ctx.fillRect(-shaftLength/2, -1.5, shaftLength, 3); // 굵기 3 원통형
+
+            // 2. 화살촉 (티타늄/강철 재질, 날카로운 삼각형 대칭형, 금속성 차가운 광택 셰이더)
+            let tipLength = 12;
+            let tipStartX = shaftLength / 2;
+            ctx.save();
+            // 비행 중 회전 속도에 맞춰 금속 빛 반사가 번쩍이도록 회전 변형 오프셋 가미
+            let flashAlpha = Math.abs(Math.sin(spinAngle));
+            let tipGrad = ctx.createLinearGradient(tipStartX, -3, tipStartX + tipLength, 3);
+            tipGrad.addColorStop(0, '#b0bec5'); 
+            tipGrad.addColorStop(0.5 * flashAlpha, '#ffffff'); // 번쩍이는 하이라이트 광원
+            tipGrad.addColorStop(1, '#607d8b'); // 차가운 티타늄의 청회색 암부
+
+            ctx.fillStyle = tipGrad;
+            ctx.beginPath();
+            ctx.moveTo(tipStartX, -4);
+            ctx.lineTo(tipStartX + tipLength, 0); // 바늘 같은 끝 뾰족 정점
+            ctx.lineTo(tipStartX, 4);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+
+            // 3. 독수리/매 깃털 표현 (120도 균등 배치 단면 표현, 독수리 특유의 흰색/갈색 결)
+            let featherStartX = -shaftLength / 2 + 5;
+            // 상단 깃털
+            let featherGradTop = ctx.createLinearGradient(featherStartX, -1.5, featherStartX - 14, -8);
+            featherGradTop.addColorStop(0, '#ffffff'); // 깃털 끝 흰색 패턴
+            featherGradTop.addColorStop(1, '#5c4033'); // 독수리 갈색 패턴
+            ctx.fillStyle = featherGradTop;
+            ctx.beginPath();
+            ctx.moveTo(featherStartX, -1.5);
+            ctx.lineTo(featherStartX - 15, -9); // 매끄러운 깃털 라인
+            ctx.lineTo(featherStartX - 10, -1.5);
+            ctx.closePath();
+            ctx.fill();
+
+            // 하단 깃털
+            let featherGradBot = ctx.createLinearGradient(featherStartX, 1.5, featherStartX - 14, 8);FeatherGradBot.addColorStop(0, '#ffffff');
+            featherGradBot.addColorStop(1, '#5c4033');
+            ctx.fillStyle = featherGradBot;
+            ctx.beginPath();
+            ctx.moveTo(featherStartX, 1.5);
+            ctx.lineTo(featherStartX - 15, 9);
+            ctx.lineTo(featherStartX - 10, 1.5);
+            ctx.closePath();
+            ctx.fill();
+
+            // 4. 화살 뒤 플astic/Horn 홈 (Nock 구조 U자 깊이 표현)
+            ctx.fillStyle = "#ff5722"; // 시인성이 높은 주황/검정 플라스틱 단단한 Nock 재질
+            ctx.fillRect(-shaftLength/2 - 2, -2, 2, 4);
+            ctx.fillStyle = "#000000";
+            ctx.fillRect(-shaftLength/2 - 1, -1, 1, 2); // 활줄 걸리는 U자 안쪽 홈 깊이 표현
+
+            ctx.restore();
+        }
+
+        drawPlanetButtonsVisual();
+        requestAnimationFrame(updateLoop);
+    </script>
 </body>
 </html>
 """
 
-# Streamlit Component를 사용하여 HTML 코드 렌더링
-components.html(game_html, height=750, scrolling=False)
+# Streamlit Component를 사용하여 수정 및 확장된 완벽한 웹 앱 인터페이스 출력
+components.html(game_html, height=720, scrolling=False)
