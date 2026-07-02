@@ -43,7 +43,7 @@ game_html = """
             background: rgba(5, 6, 8, 0.92); z-index: 10;
         }
         .hidden { display: none !important; }
-        h1 { font-size: 3.8rem; margin: 10px 0; text-shadow: 0 0 20px #00d2ff; font-weight: 800; letter-spacing: 3px; }
+        <h1>Gravity Arrow</h1>
         .result-title { font-size: 3.2rem; color: #ffcc00; text-shadow: 0 0 15px #ffcc00; margin-bottom: 15px; }
         .score-report { font-size: 1.6rem; margin-bottom: 35px; text-align: center; line-height: 1.6; }
         .ui-panel {
@@ -74,7 +74,7 @@ game_html = """
 
     <div id="game-wrapper">
         <div id="start-screen" class="screen-overlay">
-            <h1>Gravity Arrow</h1>
+            <h1 style="font-size: 3.8rem; margin: 10px 0; text-shadow: 0 0 20px #00d2ff; font-weight: 800; letter-spacing: 3px;">Gravity Arrow</h1>
             <p style="font-size: 1.1rem; color: #a0aec0; margin-bottom: 25px;">활을 클릭하고 뒤로 당겼다 놓으세요! (장궁 시뮬레이터 조준)</p>
             
             <div class="main-planet-selector" id="planet-selector-bar">
@@ -132,13 +132,7 @@ game_html = """
     <script>
         const canvas = document.getElementById('game-canvas');
         const ctx = canvas.getContext('2d');
-        const bowPos = { x: 200, y: 675 / 2 };
-
-        function initCanvasSize() {
-            canvas.width = 1200; canvas.height = 675;
-            bowPos.x = 180; bowPos.y = canvas.height / 2;
-            target.x = canvas.width - 150;
-        }
+        const bowPos = { x: 180, y: 675 / 2 };
 
         const planets = {
             earth: { name: '지구', gravity: 9.8, color: '#2b82c9' },
@@ -156,13 +150,10 @@ game_html = """
         let gameActive = false;
         let timerInterval, targetDirInterval;
 
-        // 현실적인 명암을 위한 변수 추가 및 세밀화된 운석 데이터 구조
         let meteor = { x: 0, y: 0, vx: 0, vy: 0, radius: 45, active: false, destroyed: false, rotation: 0, rotSpeed: 0.04 };
-
-        // [요구사항 반영] 과녁 이동 범위를 위아래 화면 끝까지 연장 (radius 크기를 고려해 0 ~ canvas.height 범위 제어)
         let target = {
             x: 1200 - 150, y: 675 / 2, radiusD: 115, radiusC: 84, radiusB: 51, radiusA: 20,  
-            speed: 4.0, dir: 1, visible: true, respawnTimer: 0
+            speed: 4.5, dir: 1, visible: true, respawnTimer: 0
         };
 
         let combo = 0; let maxCombo = 0; let shakeIntensity = 0;
@@ -178,10 +169,13 @@ game_html = """
 
         let activeArrows = [];
         let arrowTrajectoryVisible = false;
-
         let envParticles = []; let stars = [];        
-        document.getElementById('main-high-disp').innerText = highScore;
-        initCanvasSize();
+
+        function initCanvasSize() {
+            canvas.width = 1200; canvas.height = 675;
+            bowPos.x = 180; bowPos.y = canvas.height / 2;
+            target.x = canvas.width - 150;
+        }
 
         function drawPlanetButtonsVisual() {
             planetKeys.forEach(key => {
@@ -289,7 +283,7 @@ game_html = """
 
         function updateProgressBar() {
             const bar = document.getElementById('time-progress');
-            bar.style.width = `${(timeLeft / totalDuration) * 100}%`;
+            if (bar) bar.style.width = `${(timeLeft / totalDuration) * 100}%`;
         }
 
         function spawnMeteor() {
@@ -327,16 +321,15 @@ game_html = """
             initStars(); initEnvParticles(); drawPlanetButtonsVisual();
         }
 
-        // [요구사항 반영] 충돌 재질별 특수 이펙트 분기 펑션 생성
         function createExplosion(x, y, type) {
             let count = type === "meteor" ? 40 : 15;
             let colors = ["#ffffff"];
             
             if (type === "gold" || type === "yellow") colors = ["#ffcc00", "#ff5500", "#ffffff"];
-            else if (type === "red") colors = ["#ff2222", "#ff6666", "#aa0000"]; // 나무 파편 느낌 또는 불꽃
-            else if (type === "stone") colors = ["#999999", "#cccccc", "#555555"]; // 돌가루
-            else if (type === "spark") colors = ["#ffea00", "#ff9100", "#ffffff"]; // 스파크
-            else if (type === "meteor") colors = ["#5c4033", "#ff3e3e", "#3a2a20", "#ffaa00"]; // 운석 폭발
+            else if (type === "red") colors = ["#ff2222", "#ff6666", "#aa0000"]; 
+            else if (type === "stone") colors = ["#999999", "#cccccc", "#555555"]; 
+            else if (type === "spark") colors = ["#ffea00", "#ff9100", "#ffffff"]; 
+            else if (type === "meteor") colors = ["#5c4033", "#ff3e3e", "#3a2a20", "#ffaa00"]; 
 
             for (let i = 0; i < count; i++) {
                 let angle = Math.random() * Math.PI * 2; 
@@ -362,16 +355,14 @@ game_html = """
             return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) };
         }
 
-        window.addEventListener('mousedown', (e) => {
+        canvas.addEventListener('mousedown', (e) => {
             if (!gameActive) return;
             let pos = getCanvasMousePos(e);
-            if (pos.x >= 0 && pos.x <= canvas.width && pos.y >= 0 && pos.y <= canvas.height) {
-                if (Math.hypot(pos.x - bowPos.x, pos.y - bowPos.y) < 160) {
-                    isDragging = true;
-                    dragStart = { x: bowPos.x, y: bowPos.y };
-                    dragCurrent = { x: pos.x, y: pos.y };
-                    arrowTrajectoryVisible = true;
-                }
+            if (Math.hypot(pos.x - bowPos.x, pos.y - bowPos.y) < 160) {
+                isDragging = true;
+                dragStart = { x: bowPos.x, y: bowPos.y };
+                dragCurrent = { x: pos.x, y: pos.y };
+                arrowTrajectoryVisible = true;
             }
         });
 
@@ -385,7 +376,7 @@ game_html = """
             currentAngle = Math.atan2(dy, dx);
             
             let dist = Math.hypot(dx, dy);
-            dynamicPower = Math.min(dist / maxDragDist, 1.0) * 26; // 발사력 수치 약간 버프
+            dynamicPower = Math.min(dist / maxDragDist, 1.0) * 26; 
         });
 
         window.addEventListener('mouseup', (e) => {
@@ -398,7 +389,6 @@ game_html = """
                 let vy = Math.sin(currentAngle) * dynamicPower;
 
                 if (vx > 0) {
-                    // 리얼 장궁 화살 고유 속성 정의 및 트레일(잔상용) 배열 탑재
                     activeArrows.push({
                         x: bowPos.x, y: bowPos.y, vx: vx, vy: vy,
                         width: 85, height: 3, collided: false, handled: false,
@@ -413,13 +403,10 @@ game_html = """
             if (gameActive) {
                 if(target.visible) {
                     target.y += target.speed * target.dir;
-                    // [요구사항 반영] 과녁 이동범위를 위아래 화면 완전한 끝까지로 제어 (0 ~ canvas.height)
-                    if(target.y - target.radiusA < 0) {
-                        target.y = target.radiusA;
-                        target.dir = 1;
-                    } else if (target.y + target.radiusA > canvas.height) {
-                        target.y = canvas.height - target.radiusA;
-                        target.dir = -1;
+                    if(target.y < 0) {
+                        target.y = 0; target.dir = 1;
+                    } else if (target.y > canvas.height) {
+                        target.y = canvas.height; target.dir = -1;
                     }
                 } else {
                     target.respawnTimer--;
@@ -441,7 +428,6 @@ game_html = """
             }
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 행성 배경 드로잉
             if (currentPlanetKey === 'earth') ctx.fillStyle = '#87CEEB';
             else if (currentPlanetKey === 'moon') ctx.fillStyle = '#050505';
             else if (currentPlanetKey === 'mars') ctx.fillStyle = '#f0d399';
@@ -479,10 +465,8 @@ game_html = """
                 }
             });
 
-            // [요구사항 반영] 운석 디자인을 크레이터와 다중 그림자 레이어로 매우 현실감 있게 명암 리뉴얼
             if(meteor.active) {
                 ctx.save();
-                // 공기 찢는듯한 반투명 열 폭풍 잔상 테일 추가
                 let tailGrad = ctx.createLinearGradient(meteor.x, meteor.y, meteor.x + 110, meteor.y - 40);
                 tailGrad.addColorStop(0, "rgba(255, 60, 0, 0.85)");
                 tailGrad.addColorStop(0.3, "rgba(239, 68, 68, 0.4)");
@@ -496,31 +480,26 @@ game_html = """
                 ctx.translate(meteor.x, meteor.y); 
                 ctx.rotate(meteor.rotation);
                 
-                // 1. 기본 본체 그림자 레이어
                 let meteorGrad = ctx.createRadialGradient(-10, -10, 5, 5, 5, meteor.radius);
-                meteorGrad.addColorStop(0, '#8b7355'); // 태양광 받는 밝은 쪽 메인 칼라
-                meteorGrad.addColorStop(0.6, '#4a3525'); // 어두워지는 명암 경계선
-                meteorGrad.addColorStop(1, '#1f140e'); // 완전한 암부 자카드 암석 그림자
+                meteorGrad.addColorStop(0, '#8b7355'); 
+                meteorGrad.addColorStop(0.6, '#4a3525'); 
+                meteorGrad.addColorStop(1, '#1f140e'); 
                 
                 ctx.fillStyle = meteorGrad; ctx.beginPath(); 
                 ctx.arc(0, 0, meteor.radius, 0, Math.PI*2); ctx.fill();
 
-                // 2. 울퉁불퉁한 현실적 입체 디테일 크레이터(구덩이) 명암 수동 다중 맵핑
                 let craters = [
                     {cx: -15, cy: -10, cr: 10}, {cx: 15, cy: 12, cr: 8}, 
                     {cx: -5, cy: 20, cr: 6}, {cx: 20, cy: -15, cr: 7}
                 ];
                 craters.forEach(c => {
-                    ctx.beginPath();
-                    ctx.arc(c.cx, c.cy, c.cr, 0, Math.PI*2);
-                    // 구덩이 내부의 안쪽 그림자(역 명암) 처리 시각화
+                    ctx.beginPath(); ctx.arc(c.cx, c.cy, c.cr, 0, Math.PI*2);
                     ctx.fillStyle = "rgba(20, 10, 5, 0.65)"; ctx.fill();
                     ctx.strokeStyle = "rgba(255, 255, 255, 0.15)"; ctx.lineWidth = 1.5; ctx.stroke();
                 });
                 ctx.restore();
             }
 
-            // 움직이는 과녁 시스템 구조 렌더링
             const skewX = 0.25;
             if(target.visible) {
                 ctx.save();
@@ -532,7 +511,6 @@ game_html = """
                 ctx.restore();
             }
 
-            // 활 및 시위 구조 비주얼 드로우
             ctx.save(); ctx.translate(bowPos.x, bowPos.y); ctx.rotate(currentAngle);
             ctx.strokeStyle = "#8b5a2b"; ctx.lineWidth = 7;
             ctx.beginPath(); ctx.arc(-25, 0, 75, -Math.PI/2.3, Math.PI/2.3); ctx.stroke();
@@ -546,14 +524,12 @@ game_html = """
             }
             ctx.restore();
 
-            // 대기중 화살 드로우
             if(gameActive && !isDragging) {
                 drawArrowIcon(bowPos.x, bowPos.y, currentAngle, 0);
             } else if (gameActive && isDragging) {
                 drawArrowIcon(bowPos.x - (dynamicPower * 3.5), bowPos.y, currentAngle, 0);
             }
 
-            // 포물선 조준선 예측선 드로우
             if (arrowTrajectoryVisible && gameActive && dynamicPower > 3) {
                 let tVx = Math.cos(currentAngle) * dynamicPower;
                 if (tVx > 0) {
@@ -570,35 +546,22 @@ game_html = """
                 }
             }
 
-            // [요구사항 반영] 발사된 투사체들의 완벽한 실제 사냥용 리얼리티 화살 역학 물리 연산 시뮬레이션
             for (let i = activeArrows.length - 1; i >= 0; i--) {
                 let arrow = activeArrows[i];
-                
-                // 모션 블러 공기 파동 효과 구현을 위한 좌표 기록 보존 시스템
                 arrow.trail.push({ x: arrow.x, y: arrow.y });
                 if (arrow.trail.length > 5) arrow.trail.shift();
 
                 arrow.x += arrow.vx; arrow.y += arrow.vy; arrow.vy += currentGravity;
-                
-                // 자연스런 비행 물리 회전각(Spin) 연산 가산 반영
                 arrow.spinAngle += 0.35; 
                 let arrowAngle = Math.atan2(arrow.vy, arrow.vx);
 
-                // 공기역학적 모션 블러(슉 하고 지나가는 느낌의 얇은 흰색 잔상 0.2초 표출 구현)
                 if (arrow.trail.length > 1) {
-                    ctx.save();
-                    ctx.beginPath();
+                    ctx.save(); ctx.beginPath();
                     ctx.moveTo(arrow.trail[0].x, arrow.trail[0].y);
-                    for (let j = 1; j < arrow.trail.length; j++) {
-                        ctx.lineTo(arrow.trail[j].x, arrow.trail[j].y);
-                    }
-                    ctx.strokeStyle = "rgba(240, 245, 255, 0.28)";
-                    ctx.lineWidth = 2.5;
-                    ctx.stroke();
-                    ctx.restore();
+                    for (let j = 1; j < arrow.trail.length; j++) ctx.lineTo(arrow.trail[j].x, arrow.trail[j].y);
+                    ctx.strokeStyle = "rgba(240, 245, 255, 0.28)"; ctx.lineWidth = 2.5; ctx.stroke(); ctx.restore();
                 }
 
-                // 업그레이드된 리얼 화살 외형 렌더러 함수로 정교하게 토스
                 drawArrowIcon(arrow.x, arrow.y, arrowAngle, arrow.spinAngle);
 
                 let arrowTipX = arrow.x + Math.cos(arrowAngle) * (arrow.width / 2);
@@ -609,11 +572,9 @@ game_html = """
                     activeArrows.splice(i, 1); continue;
                 }
 
-                // 운석과의 충돌 연산 부분
                 if(meteor.active) {
                     if(Math.hypot(arrowTipX - meteor.x, arrowTipY - meteor.y) <= meteor.radius + 10) {
-                        meteor.active = false; meteor.destroyed = true;
-                        arrow.handled = true;
+                        meteor.active = false; meteor.destroyed = true; arrow.handled = true;
                         createExplosion(meteor.x, meteor.y, "meteor");
                         score += 30; combo++; if(combo > maxCombo) maxCombo = combo;
                         document.getElementById('score-disp').innerText = score;
@@ -622,32 +583,27 @@ game_html = """
                     }
                 }
 
-                // 움직이는 과녁과의 정밀 스큐 판정 영역 분기 연산
                 if (target.visible && !arrow.handled) {
                     if (arrowTipX >= target.x - 22 && arrowTipX <= target.x + 22) {
                         let currentRadY = Math.abs(arrowTipY - target.y);
                         if (currentRadY <= target.radiusD) {
                             arrow.handled = true;
-                            let addedScore = 0; let scoreColor = "#ffffff"; let hitType = "red"; // 디폴트 나무 파편형
+                            let addedScore = 0; let scoreColor = "#ffffff"; let hitType = "red"; 
 
                             if (currentRadY <= target.radiusA) {
-                                addedScore = 10; scoreColor = "#ffcc00"; hitType = "spark"; // 금속 이펙트
+                                addedScore = 10; scoreColor = "#ffcc00"; hitType = "spark"; 
                                 combo++; if(combo > maxCombo) maxCombo = combo;
                                 createScoreText(target.x - 40, target.y - 30, `BULLSEYE +10 (${combo} Combo)`, scoreColor);
                             } else if (currentRadY <= target.radiusB) {
-                                addedScore = 5; scoreColor = "#00d2ff"; hitType = "stone"; // 바위/돌가루 느낌 분기
+                                addedScore = 5; scoreColor = "#00d2ff"; hitType = "stone"; 
                                 combo++; if(combo > maxCombo) maxCombo = combo;
                                 createScoreText(target.x - 20, arrowTipY, `HIT +5`, scoreColor);
                             } else {
-                                addedScore = 2; scoreColor = "#ffffff"; hitType = "red";
-                                combo = 0;
+                                addedScore = 2; scoreColor = "#ffffff"; hitType = "red"; combo = 0;
                                 createScoreText(target.x - 10, arrowTipY, `JUST FIT +2`, scoreColor);
                             }
 
-                            score += addedScore;
-                            document.getElementById('score-disp').innerText = score;
-                            
-                            // [요구사항 반영] 재질별 고유 스파크/돌가루/나무 파편 이펙트 생성
+                            score += addedScore; document.getElementById('score-disp').innerText = score;
                             createExplosion(arrowTipX, arrowTipY, hitType);
 
                             if (combo >= 3) {
@@ -658,14 +614,12 @@ game_html = """
                                 document.getElementById('combo-wrapper').classList.add('hidden');
                             }
 
-                            target.visible = false; target.respawnTimer = 22;
-                            activeArrows.splice(i, 1);
+                            target.visible = false; target.respawnTimer = 22; activeArrows.splice(i, 1);
                         }
                     }
                 }
             }
 
-            // 타격 파티클 애니메이션 루프 업데이트
             for (let i = particles.length - 1; i >= 0; i--) {
                 let p = particles[i]; p.x += p.vx; p.y += p.vy; p.alpha -= p.decay;
                 if (p.alpha <= 0) { particles.splice(i, 1); continue; }
@@ -673,7 +627,6 @@ game_html = """
                 ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill(); ctx.restore();
             }
 
-            // 플로팅 텍스트 이펙트 드로잉
             for (let i = scoreTexts.length - 1; i >= 0; i--) {
                 let stx = scoreTexts[i]; stx.y += stx.vy; stx.alpha -= 0.015;
                 if (stx.alpha <= 0) { scoreTexts.splice(i, 1); continue; }
@@ -685,82 +638,54 @@ game_html = """
             requestAnimationFrame(updateLoop);
         }
 
-        // [요구사항 반영] 사냥용 장궁 화살 그래픽 디테일 렌더러 함수 완전 커스텀 구현
         function drawArrowIcon(x, y, angle, spinAngle) {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(angle);
+            ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
 
-            // 1. 화살대 (곧고 매끄러운 원통형 카본 섬유/짙은 갈색 나무 표면 은은한 반사 구현)
-            let shaftLength = 82; // 전체 비율에 맞춘 약 75~90cm 스케일 축소
+            let shaftLength = 82; 
             let shaftGrad = ctx.createLinearGradient(-shaftLength/2, -1.5, -shaftLength/2, 1.5);
-            shaftGrad.addColorStop(0, '#2e1c0c'); // 카본/짙은 갈색 나무 음영 암부
-            shaftGrad.addColorStop(0.5, '#4e3629'); // 표면 하이라이트 나뭇결 반사
+            shaftGrad.addColorStop(0, '#2e1c0c'); 
+            shaftGrad.addColorStop(0.5, '#4e3629'); 
             shaftGrad.addColorStop(1, '#1b0f07');
-            
-            ctx.fillStyle = shaftGrad;
-            ctx.fillRect(-shaftLength/2, -1.5, shaftLength, 3); // 굵기 3 원통형
+            ctx.fillStyle = shaftGrad; ctx.fillRect(-shaftLength/2, -1.5, shaftLength, 3); 
 
-            // 2. 화살촉 (티타늄/강철 재질, 날카로운 삼각형 대칭형, 금속성 차가운 광택 셰이더)
-            let tipLength = 12;
-            let tipStartX = shaftLength / 2;
+            let tipLength = 12; let tipStartX = shaftLength / 2;
             ctx.save();
-            // 비행 중 회전 속도에 맞춰 금속 빛 반사가 번쩍이도록 회전 변형 오프셋 가미
             let flashAlpha = Math.abs(Math.sin(spinAngle));
             let tipGrad = ctx.createLinearGradient(tipStartX, -3, tipStartX + tipLength, 3);
             tipGrad.addColorStop(0, '#b0bec5'); 
-            tipGrad.addColorStop(0.5 * flashAlpha, '#ffffff'); // 번쩍이는 하이라이트 광원
-            tipGrad.addColorStop(1, '#607d8b'); // 차가운 티타늄의 청회색 암부
+            tipGrad.addColorStop(0.5 * flashAlpha, '#ffffff'); 
+            tipGrad.addColorStop(1, '#607d8b'); 
 
-            ctx.fillStyle = tipGrad;
-            ctx.beginPath();
-            ctx.moveTo(tipStartX, -4);
-            ctx.lineTo(tipStartX + tipLength, 0); // 바늘 같은 끝 뾰족 정점
-            ctx.lineTo(tipStartX, 4);
-            ctx.closePath();
-            ctx.fill();
+            ctx.fillStyle = tipGrad; ctx.beginPath(); ctx.moveTo(tipStartX, -4); ctx.lineTo(tipStartX + tipLength, 0); ctx.lineTo(tipStartX, 4); ctx.closePath(); ctx.fill();
             ctx.restore();
 
-            // 3. 독수리/매 깃털 표현 (120도 균등 배치 단면 표현, 독수리 특유의 흰색/갈색 결)
             let featherStartX = -shaftLength / 2 + 5;
-            // 상단 깃털
             let featherGradTop = ctx.createLinearGradient(featherStartX, -1.5, featherStartX - 14, -8);
-            featherGradTop.addColorStop(0, '#ffffff'); // 깃털 끝 흰색 패턴
-            featherGradTop.addColorStop(1, '#5c4033'); // 독수리 갈색 패턴
-            ctx.fillStyle = featherGradTop;
-            ctx.beginPath();
-            ctx.moveTo(featherStartX, -1.5);
-            ctx.lineTo(featherStartX - 15, -9); // 매끄러운 깃털 라인
-            ctx.lineTo(featherStartX - 10, -1.5);
-            ctx.closePath();
-            ctx.fill();
+            featherGradTop.addColorStop(0, '#ffffff'); featherGradTop.addColorStop(1, '#5c4033');
+            ctx.fillStyle = featherGradTop; ctx.beginPath(); ctx.moveTo(featherStartX, -1.5); ctx.lineTo(featherStartX - 15, -9); ctx.lineTo(featherStartX - 10, -1.5); ctx.closePath(); ctx.fill();
 
-            // 하단 깃털
-            let featherGradBot = ctx.createLinearGradient(featherStartX, 1.5, featherStartX - 14, 8);FeatherGradBot.addColorStop(0, '#ffffff');
-            featherGradBot.addColorStop(1, '#5c4033');
-            ctx.fillStyle = featherGradBot;
-            ctx.beginPath();
-            ctx.moveTo(featherStartX, 1.5);
-            ctx.lineTo(featherStartX - 15, 9);
-            ctx.lineTo(featherStartX - 10, 1.5);
-            ctx.closePath();
-            ctx.fill();
+            let featherGradBot = ctx.createLinearGradient(featherStartX, 1.5, featherStartX - 14, 8);
+            featherGradBot.addColorStop(0, '#ffffff'); featherGradBot.addColorStop(1, '#5c4033');
+            ctx.fillStyle = featherGradBot; ctx.beginPath(); ctx.moveTo(featherStartX, 1.5); ctx.lineTo(featherStartX - 15, 9); ctx.lineTo(featherStartX - 10, 1.5); ctx.closePath(); ctx.fill();
 
-            // 4. 화살 뒤 플astic/Horn 홈 (Nock 구조 U자 깊이 표현)
-            ctx.fillStyle = "#ff5722"; // 시인성이 높은 주황/검정 플라스틱 단단한 Nock 재질
-            ctx.fillRect(-shaftLength/2 - 2, -2, 2, 4);
-            ctx.fillStyle = "#000000";
-            ctx.fillRect(-shaftLength/2 - 1, -1, 1, 2); // 활줄 걸리는 U자 안쪽 홈 깊이 표현
+            ctx.fillStyle = "#ff5722"; ctx.fillRect(-shaftLength/2 - 2, -2, 2, 4);
+            ctx.fillStyle = "#000000"; ctx.fillRect(-shaftLength/2 - 1, -1, 1, 2);
 
             ctx.restore();
         }
 
-        drawPlanetButtonsVisual();
-        requestAnimationFrame(updateLoop);
+        // 브라우저 윈도우 로드 완료 시 초기화 및 루프 실행 보장
+        window.onload = function() {
+            initCanvasSize();
+            document.getElementById('main-high-disp').innerText = highScore;
+            drawPlanetButtonsVisual();
+            initStars();
+            initEnvParticles();
+            requestAnimationFrame(updateLoop);
+        };
     </script>
 </body>
 </html>
 """
 
-# Streamlit Component를 사용하여 수정 및 확장된 완벽한 웹 앱 인터페이스 출력
 components.html(game_html, height=720, scrolling=False)
