@@ -43,7 +43,6 @@ game_html = """
             background: rgba(5, 6, 8, 0.92); z-index: 10;
         }
         .hidden { display: none !important; }
-        <h1>Gravity Arrow</h1>
         .result-title { font-size: 3.2rem; color: #ffcc00; text-shadow: 0 0 15px #ffcc00; margin-bottom: 15px; }
         .score-report { font-size: 1.6rem; margin-bottom: 35px; text-align: center; line-height: 1.6; }
         .ui-panel {
@@ -465,6 +464,20 @@ game_html = """
                 }
             });
 
+            // [요구사항 반영] 달을 포함한 행성별 지표면(땅) 실루엣 컴백 추가
+            if (currentPlanetKey === 'earth') ctx.fillStyle = "#1e3d22";
+            else if (currentPlanetKey === 'moon') ctx.fillStyle = "#1c1d1f";
+            else if (currentPlanetKey === 'mars') ctx.fillStyle = "#3b160b";
+            else if (currentPlanetKey === 'venus') ctx.fillStyle = "#42330b";
+            else if (currentPlanetKey === 'europa') ctx.fillStyle = "#1e2e3d";
+            
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height - 50);
+            ctx.quadraticCurveTo(canvas.width / 2, canvas.height - 95, canvas.width, canvas.height - 45);
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.lineTo(0, canvas.height);
+            ctx.fill();
+
             if(meteor.active) {
                 ctx.save();
                 let tailGrad = ctx.createLinearGradient(meteor.x, meteor.y, meteor.x + 110, meteor.y - 40);
@@ -511,24 +524,33 @@ game_html = """
                 ctx.restore();
             }
 
-            ctx.save(); ctx.translate(bowPos.x, bowPos.y); ctx.rotate(currentAngle);
+            // [버그 수정 완료] 활과 화살 조준 상태 드로잉 통합 행렬 적용 공간
+            ctx.save(); 
+            ctx.translate(bowPos.x, bowPos.y); 
+            ctx.rotate(currentAngle);
+            
             ctx.strokeStyle = "#8b5a2b"; ctx.lineWidth = 7;
             ctx.beginPath(); ctx.arc(-25, 0, 75, -Math.PI/2.3, Math.PI/2.3); ctx.stroke();
             
+            let stringX = -20;
             if(isDragging) {
+                stringX = -20 - (dynamicPower * 4.0); // 활 당겨지는 물리 깊이
                 ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.lineWidth = 2.0;
-                ctx.beginPath(); ctx.moveTo(-20, -70); ctx.lineTo(-dynamicPower * 5.0, 0); ctx.lineTo(-20, 70); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(-20, -70); ctx.lineTo(stringX, 0); ctx.lineTo(-20, 70); ctx.stroke();
             } else {
                 ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 1.5;
                 ctx.beginPath(); ctx.moveTo(-20, -70); ctx.lineTo(-20, 70); ctx.stroke();
             }
-            ctx.restore();
 
-            if(gameActive && !isDragging) {
-                drawArrowIcon(bowPos.x, bowPos.y, currentAngle, 0);
-            } else if (gameActive && isDragging) {
-                drawArrowIcon(bowPos.x - (dynamicPower * 3.5), bowPos.y, currentAngle, 0);
+            // [대형 버그 패치] 대기/조준 화살을 활의 완전 로컬 좌표계 내부에 결속하여 절대 어긋나지 않도록 수정
+            if(gameActive) {
+                let arrowX = stringX + 41; // shaftLength(82) / 2 = 41 (꼬리가 시위에 정확히 맞닿는 정렬값)
+                ctx.save();
+                ctx.translate(arrowX, 0);
+                drawArrowShapeLocal(0); // 회전 없는 고정 상태 조준 드로우
+                ctx.restore();
             }
+            ctx.restore();
 
             if (arrowTrajectoryVisible && gameActive && dynamicPower > 3) {
                 let tVx = Math.cos(currentAngle) * dynamicPower;
@@ -638,9 +660,14 @@ game_html = """
             requestAnimationFrame(updateLoop);
         }
 
+        // 공용 호출을 위해 내부 셰이더 함수 추출 래핑 완료
         function drawArrowIcon(x, y, angle, spinAngle) {
             ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
+            drawArrowShapeLocal(spinAngle);
+            ctx.restore();
+        }
 
+        function drawArrowShapeLocal(spinAngle) {
             let shaftLength = 82; 
             let shaftGrad = ctx.createLinearGradient(-shaftLength/2, -1.5, -shaftLength/2, 1.5);
             shaftGrad.addColorStop(0, '#2e1c0c'); 
@@ -670,11 +697,8 @@ game_html = """
 
             ctx.fillStyle = "#ff5722"; ctx.fillRect(-shaftLength/2 - 2, -2, 2, 4);
             ctx.fillStyle = "#000000"; ctx.fillRect(-shaftLength/2 - 1, -1, 1, 2);
-
-            ctx.restore();
         }
 
-        // 브라우저 윈도우 로드 완료 시 초기화 및 루프 실행 보장
         window.onload = function() {
             initCanvasSize();
             document.getElementById('main-high-disp').innerText = highScore;
