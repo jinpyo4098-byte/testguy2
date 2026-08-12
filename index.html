@@ -415,7 +415,7 @@
 
     <!-- 게임 바깥 아래의 문의하기 버튼 -->
     <div class="inquiry-button-container">
-        <button onclick="openInquiry()">문의하기</button>
+        <button onclick="openInquiry()">inquiry</button>
     </div>
 
     <!-- 문의하기 모달 폼 -->
@@ -425,19 +425,19 @@
             <div id="form-message" class="form-message"></div>
             <form id="inquiry-form">
                 <div class="form-group">
-                    <label for="inquiry-name">이름</label>
+                    <label for="inquiry-name">name</label>
                     <input type="text" id="inquiry-name" name="name" required placeholder="성명을 입력해주세요">
                 </div>
                 <div class="form-group">
-                    <label for="inquiry-email">이메일</label>
+                    <label for="inquiry-email">e-mail</label>
                     <input type="email" id="inquiry-email" name="email" required placeholder="이메일 주소를 입력해주세요">
                 </div>
                 <div class="form-group">
-                    <label for="inquiry-message">문의 내용</label>
+                    <label for="inquiry-message">details</label>
                     <textarea id="inquiry-message" name="message" required placeholder="문의 내용을 입력해주세요"></textarea>
                 </div>
                 <div class="form-buttons">
-                    <button type="submit" id="submit-inquiry-btn">제출</button>
+                    <button type="submit" id="submit-inquiry-btn">submit</button>
                     <button type="button" id="cancel-inquiry-btn" onclick="closeInquiry()">취소</button>
                 </div>
             </form>
