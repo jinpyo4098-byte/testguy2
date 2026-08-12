@@ -1022,6 +1022,14 @@
         }
 
         // 인스턴스 빌더 구동 선언문
+        /**
+         * 문의하기 페이지로 이동하는 함수
+         * Formspree 폼으로 사용자를 리다이렉트합니다
+         */
+        function openInquiry() {
+            window.location.href = 'https://formspree.io/f/mljrdabw';
+        }
+
         init();
         update();
     

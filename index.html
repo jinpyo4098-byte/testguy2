@@ -181,6 +181,37 @@
             display: none !important;
             opacity: 0;
         }
+
+        /* 우측 하단 문의하기 버튼 스타일 */
+        #inquiry-box {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            pointer-events: auto;
+        }
+
+        #inquiry-btn {
+            background: #ef4444;
+            border: 2px solid #dc2626;
+            border-radius: 8px;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.3);
+        }
+
+        #inquiry-btn:hover {
+            background: #dc2626;
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px -1px rgba(239, 68, 68, 0.4);
+        }
+
+        #inquiry-btn:active {
+            transform: scale(0.98);
+        }
     </style>
 </head>
 <body>
@@ -212,6 +243,11 @@
             <!-- 콤보 달성 시 드러나는 중앙 알림 레이아웃 -->
             <div id="combo-wrapper" class="hidden">
                 <p id="combo-disp">1 COMBO</p>
+            </div>
+
+            <!-- 우측 하단 문의하기 버튼 -->
+            <div id="inquiry-box" class="interactive">
+                <button id="inquiry-btn" onclick="openInquiry()">문의하기</button>
             </div>
         </div>
     </div>
