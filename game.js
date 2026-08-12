@@ -1023,12 +1023,78 @@
 
         // 인스턴스 빌더 구동 선언문
         /**
-         * 문의하기 페이지로 이동하는 함수
-         * Formspree 폼으로 사용자를 리다이렉트합니다
+         * 문의하기 모달을 여는 함수
          */
         function openInquiry() {
-            window.location.href = 'https://formspree.io/f/mljrdabw';
+            const modal = document.getElementById('inquiry-modal');
+            modal.classList.add('show');
         }
+
+        /**
+         * 문의하기 모달을 닫는 함수
+         */
+        function closeInquiry() {
+            const modal = document.getElementById('inquiry-modal');
+            modal.classList.remove('show');
+            // 폼 초기화
+            document.getElementById('inquiry-form').reset();
+            document.getElementById('form-message').textContent = '';
+            document.getElementById('form-message').classList.remove('success', 'error');
+        }
+
+        /**
+         * 모달 바깥을 클릭했을 때 닫기
+         */
+        document.addEventListener('DOMContentLoaded', function() {
+            const modal = document.getElementById('inquiry-modal');
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    closeInquiry();
+                }
+            });
+
+            // 폼 제출 핸들러
+            document.getElementById('inquiry-form').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const name = document.getElementById('inquiry-name').value;
+                const email = document.getElementById('inquiry-email').value;
+                const message = document.getElementById('inquiry-message').value;
+                const formMessage = document.getElementById('form-message');
+
+                try {
+                    // Formspree 엔드포인트로 데이터 전송
+                    const response = await fetch('https://formspree.io/f/mljrdabw', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            name: name,
+                            email: email,
+                            message: message
+                        })
+                    });
+
+                    if (response.ok) {
+                        formMessage.textContent = '✓ 문의가 성공적으로 전송되었습니다. 감사합니다!';
+                        formMessage.classList.remove('error');
+                        formMessage.classList.add('success');
+                        
+                        // 2초 후 모달 닫기
+                        setTimeout(() => {
+                            closeInquiry();
+                        }, 2000);
+                    } else {
+                        throw new Error('전송 실패');
+                    }
+                } catch (error) {
+                    formMessage.textContent = '✗ 문의 전송에 실패했습니다. 다시 시도해주세요.';
+                    formMessage.classList.remove('success');
+                    formMessage.classList.add('error');
+                }
+            });
+        });
 
         init();
         update();

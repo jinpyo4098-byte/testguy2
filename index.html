@@ -212,6 +212,172 @@
         #inquiry-btn:active {
             transform: scale(0.98);
         }
+
+        /* 문의하기 버튼 - 게임 바깥 아래쪽 */
+        .inquiry-button-container {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+        }
+
+        .inquiry-button-container button {
+            background: #ef4444;
+            border: 2px solid #dc2626;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            padding: 10px 20px;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.3);
+        }
+
+        .inquiry-button-container button:hover {
+            background: #dc2626;
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px -1px rgba(239, 68, 68, 0.4);
+        }
+
+        .inquiry-button-container button:active {
+            transform: scale(0.98);
+        }
+
+        /* 문의하기 모달 오버레이 */
+        #inquiry-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 200;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #inquiry-modal.show {
+            display: flex;
+        }
+
+        /* 문의하기 폼 컨테이너 */
+        .inquiry-form-container {
+            background: rgba(15, 23, 42, 0.95);
+            border: 2px solid #334155;
+            border-radius: 12px;
+            padding: 30px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+        }
+
+        .inquiry-form-container h2 {
+            margin: 0 0 20px 0;
+            font-size: 24px;
+            color: #38bdf8;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #cbd5e1;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid #475569;
+            border-radius: 6px;
+            color: #f8fafc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            background: rgba(30, 41, 59, 0.9);
+            border-color: #38bdf8;
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .form-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .form-buttons button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        #submit-inquiry-btn {
+            background: #38bdf8;
+            color: #0f172a;
+        }
+
+        #submit-inquiry-btn:hover {
+            background: #0ea5e9;
+            transform: scale(1.02);
+        }
+
+        #cancel-inquiry-btn {
+            background: #475569;
+            color: #f8fafc;
+        }
+
+        #cancel-inquiry-btn:hover {
+            background: #64748b;
+            transform: scale(1.02);
+        }
+
+        .form-message {
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            display: none;
+            font-size: 14px;
+        }
+
+        .form-message.success {
+            background: rgba(34, 197, 94, 0.2);
+            color: #86efac;
+            border: 1px solid #22c55e;
+            display: block;
+        }
+
+        .form-message.error {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            border: 1px solid #ef4444;
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -244,11 +410,37 @@
             <div id="combo-wrapper" class="hidden">
                 <p id="combo-disp">1 COMBO</p>
             </div>
+        </div>
+    </div>
 
-            <!-- 우측 하단 문의하기 버튼 -->
-            <div id="inquiry-box" class="interactive">
-                <button id="inquiry-btn" onclick="openInquiry()">문의하기</button>
-            </div>
+    <!-- 게임 바깥 아래의 문의하기 버튼 -->
+    <div class="inquiry-button-container">
+        <button onclick="openInquiry()">문의하기</button>
+    </div>
+
+    <!-- 문의하기 모달 폼 -->
+    <div id="inquiry-modal">
+        <div class="inquiry-form-container">
+            <h2>문의하기</h2>
+            <div id="form-message" class="form-message"></div>
+            <form id="inquiry-form">
+                <div class="form-group">
+                    <label for="inquiry-name">이름</label>
+                    <input type="text" id="inquiry-name" name="name" required placeholder="성명을 입력해주세요">
+                </div>
+                <div class="form-group">
+                    <label for="inquiry-email">이메일</label>
+                    <input type="email" id="inquiry-email" name="email" required placeholder="이메일 주소를 입력해주세요">
+                </div>
+                <div class="form-group">
+                    <label for="inquiry-message">문의 내용</label>
+                    <textarea id="inquiry-message" name="message" required placeholder="문의 내용을 입력해주세요"></textarea>
+                </div>
+                <div class="form-buttons">
+                    <button type="submit" id="submit-inquiry-btn">제출</button>
+                    <button type="button" id="cancel-inquiry-btn" onclick="closeInquiry()">취소</button>
+                </div>
+            </form>
         </div>
     </div>
 
